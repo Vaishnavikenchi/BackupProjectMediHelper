@@ -12,10 +12,12 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import BarcodeDisplay from '../components/BarcodeDisplay';
 import toast from 'react-hot-toast';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../firebase/firebase-config';
 
 // ─── EMPTY FORM ───────────────────────────────────────────────────────────────
 const emptyForm = {
-  barcode: '', name: '', dosage: '',
+  barcode: '', name: '', dosage: '', imageUrl: '',
   usageInstructions_en: '', usageInstructions_hi: '', usageInstructions_mr: '',
   precautions_en: '', precautions_hi: '', precautions_mr: '',
   sideEffects_en: '', sideEffects_hi: '', sideEffects_mr: '',
@@ -123,9 +125,14 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
   const [form, setForm] = useState(initialData);
   const [showScanner, setShowScanner] = useState(false);
   const [generatedBarcode, setGeneratedBarcode] = useState('');
+  const [imagePreview, setImagePreview] = useState(initialData.imageUrl || null);
+  const [imageFile, setImageFile] = useState(null);
   const downloadFnRef = useRef(null);
 
-  useEffect(() => { setForm(initialData); }, [JSON.stringify(initialData)]);
+  useEffect(() => { 
+    setForm(initialData); 
+    setImagePreview(initialData.imageUrl || null);
+  }, [JSON.stringify(initialData)]);
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
@@ -135,11 +142,19 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
     toast.success(`Barcode scanned: ${barcode}`, { icon: '📷' });
   }
 
+  function handleImageChange(e) {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.barcode.trim()) { toast.error('Barcode is required'); return; }
     if (!form.name.trim()) { toast.error('Medicine name is required'); return; }
-    onSubmit(form, () => {
+    onSubmit(form, imageFile, () => {
       setGeneratedBarcode(form.barcode);
     });
   }
@@ -183,6 +198,15 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
         <div>
           <Label>Dosage</Label>
           <Input type="text" value={form.dosage} onChange={set('dosage')} placeholder="e.g. 500mg tablet" />
+        </div>
+      </div>
+      <div>
+        <Label>Medicine Image (Optional)</Label>
+        <div className="flex items-center gap-4">
+          {imagePreview && (
+            <img src={imagePreview} alt="Preview" className="w-16 h-16 rounded-xl object-cover ring-2 ring-brand/30" />
+          )}
+          <input type="file" accept="image/*" onChange={handleImageChange} className="input-premium py-2 px-3 w-full text-sm" />
         </div>
       </div>
 
@@ -308,9 +332,14 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
 function EditModal({ medicine, onClose, onSaved }) {
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(form) {
+  async function handleSubmit(form, imageFile) {
     setLoading(true);
     try {
+      if (imageFile) {
+        const storageRef = ref(storage, `medicines/${form.barcode}_${imageFile.name}`);
+        await uploadBytes(storageRef, imageFile);
+        form.imageUrl = await getDownloadURL(storageRef);
+      }
       const { barcode, ...rest } = form;
       await updateMedicine(medicine.id, rest);
       toast.success('Medicine updated!');
@@ -342,6 +371,7 @@ function EditModal({ medicine, onClose, onSaved }) {
             barcode: medicine.id,
             name: medicine.name || '',
             dosage: medicine.dosage || '',
+            imageUrl: medicine.imageUrl || '',
             usageInstructions_en: medicine.usageInstructions_en || medicine.usageInstructions || '',
             usageInstructions_hi: medicine.usageInstructions_hi || '',
             usageInstructions_mr: medicine.usageInstructions_mr || '',
@@ -388,11 +418,20 @@ function MedicineCard({ medicine, onEdit, onDelete }) {
       <div className="absolute top-0 right-0 w-24 h-24 bg-brand/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-extrabold text-lg text-[var(--text-primary)] leading-tight truncate">{medicine.name}</p>
-          {medicine.dosage && (
-            <span className="inline-block mt-1 px-2 py-0.5 bg-brand/10 text-brand text-xs font-bold rounded-md">{medicine.dosage}</span>
+        <div className="flex gap-4 flex-1 min-w-0">
+          {medicine.imageUrl ? (
+            <img src={medicine.imageUrl} alt={medicine.name} className="w-14 h-14 object-cover rounded-xl shadow-md border border-[var(--border-color)] flex-shrink-0" />
+          ) : (
+            <div className="w-14 h-14 bg-brand/10 border border-brand/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Pill className="w-6 h-6 text-brand" />
+            </div>
           )}
+          <div className="flex-1 min-w-0">
+            <p className="font-extrabold text-lg text-[var(--text-primary)] leading-tight truncate">{medicine.name}</p>
+             {medicine.dosage && (
+               <span className="inline-block mt-1 px-2 py-0.5 bg-brand/10 text-brand text-xs font-bold rounded-md">{medicine.dosage}</span>
+             )}
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => onEdit(medicine)} className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500 text-amber-600 hover:text-white transition-all duration-300" title="Edit">
@@ -492,9 +531,14 @@ export default function AdminDashboard() {
     }
   }
 
-  async function handleAddMedicine(form, onSuccess) {
+  async function handleAddMedicine(form, imageFile, onSuccess) {
     setAdding(true);
     try {
+      if (imageFile) {
+        const storageRef = ref(storage, `medicines/${form.barcode}_${imageFile.name}`);
+        await uploadBytes(storageRef, imageFile);
+        form.imageUrl = await getDownloadURL(storageRef);
+      }
       await addMedicineByBarcode(form.barcode, form);
       // Notify all users
       await createMedicineNotification(form.barcode, form.name);

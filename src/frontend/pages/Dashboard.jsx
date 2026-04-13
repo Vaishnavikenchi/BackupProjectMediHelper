@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Search, Camera, Bell, Clock, Pill, Activity, ChevronRight, Sparkles, TrendingUp, Award, CalendarCheck, Loader } from 'lucide-react';
-import { getUserHistory, getUserReminders } from '../../firebase/firestoreService';
+import { Search, Camera, Bell, Clock, Pill, Activity, ChevronRight, Sparkles, UploadCloud } from 'lucide-react';
 
 const quickLinks = [
+  { to: '/upload-prescription', icon: UploadCloud, label: 'Upload Prescription', color: 'from-fuchsia-500 to-rose-500', shadow: 'shadow-fuchsia-500/30', desc: 'Extract medicines from image' },
   { to: '/search', icon: Search, label: 'Search Medicine', color: 'from-blue-500 to-cyan-400', shadow: 'shadow-blue-500/30', desc: 'Find drug information' },
   { to: '/scanner', icon: Camera, label: 'Scan Medicine', color: 'from-purple-500 to-pink-500', shadow: 'shadow-purple-500/30', desc: 'Scan a barcode or label' },
   { to: '/reminders', icon: Bell, label: 'Reminders', color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30', desc: 'Manage your medication schedule' },
@@ -13,74 +13,9 @@ const quickLinks = [
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [adherenceScore, setAdherenceScore] = useState(0);
-  const [currentStreak, setCurrentStreak] = useState(0);
   
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-
-  useEffect(() => {
-    async function loadStats() {
-      if (!currentUser) return;
-      try {
-        setLoadingStats(true);
-        const history = await getUserHistory(currentUser.uid);
-        
-        // --- Calculate Streak ---
-        let streak = 0;
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        // Just a basic heuristic for hackathon: count consecutive days backwards
-        let checkDate = new Date(today);
-        let foundForCheckDate = true;
-        
-        // Group history by date string
-        const historyDates = new Set();
-        history.forEach(h => {
-          if(h.status === 'taken' && h.takenAt?.seconds) {
-             const d = new Date(h.takenAt.seconds * 1000);
-             d.setHours(0,0,0,0);
-             historyDates.add(d.getTime());
-          }
-        });
-
-        // if took today or yesterday, start streak 
-        // For demonstration, let's give a default streak of 3 if no data to make the demo look good, or calculate if data exists.
-        if (historyDates.size === 0) {
-            streak = 5; // Demo data
-            setAdherenceScore(94); // Demo data
-        } else {
-            // real calculation
-            while (true) {
-                if (historyDates.has(checkDate.getTime())) {
-                    streak++;
-                    checkDate.setDate(checkDate.getDate() - 1);
-                } else if (checkDate.getTime() === today.getTime()) {
-                    // Check yesterday if today is missed but might not be over
-                    checkDate.setDate(checkDate.getDate() - 1);
-                } else {
-                    break; // Streak broken
-                }
-            }
-            setCurrentStreak(streak);
-            
-            // Adherence score
-            const taken = history.filter(h => h.status === 'taken').length;
-            const total = history.length;
-            const score = total === 0 ? 100 : Math.round((taken / total) * 100);
-            setAdherenceScore(score);
-        }
-        
-      } catch (err) {
-        console.error("Failed to load stats", err);
-      } finally {
-        setLoadingStats(false);
-      }
-    }
-    loadStats();
-  }, [currentUser]);
 
   return (
     <div className="space-y-10 pb-10 animate-fade-in">
@@ -99,92 +34,8 @@ export default function Dashboard() {
             </h1>
             <p className="text-[var(--text-secondary)] text-lg mt-1 font-medium flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-accent" />
-              Here's your health overview
+              Here's your quick access dashboard
             </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Gamified Health Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
-        {/* Adherence Card */}
-        <div className="premium-glass p-6 md:p-8 rounded-3xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl transform translate-x-1/2 -translate-y-1/2 group-hover:bg-emerald-500/20 transition-colors"></div>
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="font-bold text-[var(--text-secondary)] text-sm tracking-widest uppercase flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-500" />
-                Adherence Score
-              </p>
-              <div className="flex items-baseline gap-2">
-                {loadingStats ? (
-                  <Loader className="w-8 h-8 text-emerald-500 animate-spin" />
-                ) : (
-                  <>
-                    <h2 className="text-5xl font-extrabold text-[var(--text-primary)] tracking-tighter">
-                      {adherenceScore}
-                    </h2>
-                    <span className="text-2xl font-bold text-emerald-500">%</span>
-                  </>
-                )}
-              </div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                {adherenceScore > 90 ? "Excellent! You're on track." : adherenceScore > 75 ? "Good job, keep it up!" : "Needs a little improvement."}
-              </p>
-            </div>
-            
-            {/* Circular Progress (Visual only) */}
-            <div className="relative w-24 h-24 flex-shrink-0">
-               <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                  <path
-                    className="text-[var(--border-color)]"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                  />
-                  {!loadingStats && (
-                    <path
-                      className="text-emerald-500 transition-all duration-1000 ease-out"
-                      strokeDasharray={`${adherenceScore}, 100`}
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
-                  )}
-               </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Streak Card */}
-        <div className="premium-glass p-6 md:p-8 rounded-3xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl transform translate-x-1/2 -translate-y-1/2 group-hover:bg-orange-500/20 transition-colors"></div>
-          <div className="relative z-10 flex items-center justify-between h-full">
-            <div className="space-y-2">
-              <p className="font-bold text-[var(--text-secondary)] text-sm tracking-widest uppercase flex items-center gap-2">
-                <Award className="w-4 h-4 text-orange-500" />
-                Current Streak
-              </p>
-              <div className="flex items-baseline gap-2">
-                 {loadingStats ? (
-                  <Loader className="w-8 h-8 text-orange-500 animate-spin" />
-                ) : (
-                  <>
-                    <h2 className="text-5xl font-extrabold text-[var(--text-primary)] tracking-tighter">
-                      {currentStreak || 5}
-                    </h2>
-                    <span className="text-xl font-bold text-orange-500">Days 🔥</span>
-                  </>
-                )}
-              </div>
-              <p className="text-sm font-medium text-[var(--text-secondary)]">Consistently taking your meds!</p>
-            </div>
-            <div className="p-4 bg-orange-500/10 rounded-2xl ring-1 ring-orange-500/20 shadow-inner group-hover:scale-110 transition-transform">
-              <CalendarCheck className="w-10 h-10 text-orange-500" />
-            </div>
           </div>
         </div>
       </div>
@@ -194,7 +45,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-[var(--text-primary)]">Quick Actions</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {quickLinks.map(({ to, icon: Icon, label, color, shadow, desc }, index) => (
             <Link
               key={to}

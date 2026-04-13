@@ -14,6 +14,7 @@ import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import SearchMedicine from './pages/SearchMedicine';
 import ScannerPage from './pages/ScannerPage';
+import UploadPrescription from './pages/UploadPrescription';
 import MedicineDetail from './pages/MedicineDetail';
 import RemindersPage from './pages/RemindersPage';
 import AddReminder from './pages/AddReminder';
@@ -75,6 +76,7 @@ function App() {
                       <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/search" element={<SearchMedicine />} />
                     <Route path="/scanner" element={<ScannerPage />} />
+                    <Route path="/upload-prescription" element={<UploadPrescription />} />
                     <Route path="/medicine/:id" element={<MedicineDetail />} />
                     <Route path="/reminders" element={<RemindersPage />} />
                     <Route path="/reminders/add" element={<AddReminder />} />
