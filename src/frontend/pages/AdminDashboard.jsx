@@ -12,8 +12,6 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import BarcodeDisplay from '../components/BarcodeDisplay';
 import toast from 'react-hot-toast';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../firebase/firebase-config';
 
 // ─── EMPTY FORM ───────────────────────────────────────────────────────────────
 const emptyForm = {
@@ -125,13 +123,8 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
   const [form, setForm] = useState(initialData);
   const [showScanner, setShowScanner] = useState(false);
   const [generatedBarcode, setGeneratedBarcode] = useState('');
-  const [imagePreview, setImagePreview] = useState(initialData.imageUrl || null);
-  const [imageFile, setImageFile] = useState(null);
-  const downloadFnRef = useRef(null);
-
   useEffect(() => { 
     setForm(initialData); 
-    setImagePreview(initialData.imageUrl || null);
   }, [JSON.stringify(initialData)]);
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
@@ -142,19 +135,11 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
     toast.success(`Barcode scanned: ${barcode}`, { icon: '📷' });
   }
 
-  function handleImageChange(e) {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  }
-
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.barcode.trim()) { toast.error('Barcode is required'); return; }
     if (!form.name.trim()) { toast.error('Medicine name is required'); return; }
-    onSubmit(form, imageFile, () => {
+    onSubmit(form, null, () => {
       setGeneratedBarcode(form.barcode);
     });
   }
@@ -198,15 +183,6 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
         <div>
           <Label>Dosage</Label>
           <Input type="text" value={form.dosage} onChange={set('dosage')} placeholder="e.g. 500mg tablet" />
-        </div>
-      </div>
-      <div>
-        <Label>Medicine Image (Optional)</Label>
-        <div className="flex items-center gap-4">
-          {imagePreview && (
-            <img src={imagePreview} alt="Preview" className="w-16 h-16 rounded-xl object-cover ring-2 ring-brand/30" />
-          )}
-          <input type="file" accept="image/*" onChange={handleImageChange} className="input-premium py-2 px-3 w-full text-sm" />
         </div>
       </div>
 
@@ -332,21 +308,29 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
 function EditModal({ medicine, onClose, onSaved }) {
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(form, imageFile) {
+  async function handleSubmit(form) {
     setLoading(true);
     try {
-      if (imageFile) {
-        const storageRef = ref(storage, `medicines/${form.barcode}_${imageFile.name}`);
-        await uploadBytes(storageRef, imageFile);
-        form.imageUrl = await getDownloadURL(storageRef);
-      }
+      const timeout = (ms, promise, name) => {
+         return Promise.race([
+           promise,
+           new Promise((_, reject) => setTimeout(() => reject(new Error(`${name} timed out after ${ms/1000}s. Check your Firebase connection and Storage rules.`)), ms))
+         ]);
+      };
+
       const { barcode, ...rest } = form;
-      await updateMedicine(medicine.id, rest);
+      
+      // Clean undefined values to prevent Firebase errors
+      Object.keys(rest).forEach(key => rest[key] === undefined && delete rest[key]);
+
+      await timeout(15000, updateMedicine(medicine.id, rest), 'Database update');
+      
       toast.success('Medicine updated!');
       onSaved();
       onClose();
-    } catch {
-      toast.error('Failed to update medicine');
+    } catch (error) {
+      console.error('Update Error:', error);
+      toast.error('Failed to update: ' + (error.message || 'Unknown error'), { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -531,24 +515,29 @@ export default function AdminDashboard() {
     }
   }
 
-  async function handleAddMedicine(form, imageFile, onSuccess) {
+  async function handleAddMedicine(form, _, onSuccess) {
     setAdding(true);
     try {
-      if (imageFile) {
-        const storageRef = ref(storage, `medicines/${form.barcode}_${imageFile.name}`);
-        await uploadBytes(storageRef, imageFile);
-        form.imageUrl = await getDownloadURL(storageRef);
-      }
-      await addMedicineByBarcode(form.barcode, form);
-      // Notify all users
-      await createMedicineNotification(form.barcode, form.name);
-      toast.success(`${form.name} added & users notified!`, { icon: '✅', duration: 5000 });
+      const timeout = (ms, promise, name) => {
+         return Promise.race([
+           promise,
+           new Promise((_, reject) => setTimeout(() => reject(new Error(`${name} timed out. Check Firebase connection/rules.`)), ms))
+         ]);
+      };
+
+      await timeout(15000, addMedicineByBarcode(form.barcode, form), 'Database save');
+      
+      // Notify all users (run asynchronously to avoid blocking)
+      createMedicineNotification(form.barcode, form.name).catch(console.warn);
+      
+      toast.success(`${form.name} added!`, { icon: '✅', duration: 5000 });
       onSuccess?.();
-      // Refresh medicines list
+      
       const m = await getAllMedicines();
       setMedicines(m);
     } catch (err) {
-      toast.error('Failed to add medicine: ' + err.message);
+      console.error('Add Error:', err);
+      toast.error('Failed to add medicine: ' + err.message, { duration: 6000 });
     } finally {
       setAdding(false);
     }

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Pill, ChevronRight, Loader, Sparkles, Database } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getAllMedicines } from '../../firebase/firestoreService';
+import { useAuth } from '../context/AuthContext';
+import { getAllMedicines, addSearchHistory } from '../../firebase/firestoreService';
 
 export default function SearchMedicine() {
   const [query, setQuery] = useState('');
@@ -13,6 +14,7 @@ export default function SearchMedicine() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     async function fetchLocal() {
@@ -34,6 +36,9 @@ export default function SearchMedicine() {
     setLoading(true);
     setSearched(true);
     try {
+      if (currentUser) {
+         addSearchHistory(currentUser.uid, query).catch(console.warn);
+      }
       const qLower = query.toLowerCase();
       const matches = localMedicines.filter(m => 
         (m.name || '').toLowerCase().includes(qLower) || 

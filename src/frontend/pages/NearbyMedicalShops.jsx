@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { MapPin, Navigation, Search, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { addNearbyHistory } from '../../firebase/firestoreService';
 
 export default function NearbyMedicalShops() {
   const [locationQuery, setLocationQuery] = useState('');
@@ -8,6 +10,7 @@ export default function NearbyMedicalShops() {
   const [activeLocation, setActiveLocation] = useState('Solapur'); // Default map fallback
   const [isLocating, setIsLocating] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(true);
+  const { currentUser } = useAuth();
 
   // Sample data for Nearby Medical Shops
   const sampleShops = [
@@ -106,6 +109,9 @@ export default function NearbyMedicalShops() {
       setActiveLocation(locationQuery);
     }
     toast.success(`Searching...`);
+    if (currentUser) {
+      addNearbyHistory(currentUser.uid, locationQuery || activeLocation, medicineQuery).catch(console.warn);
+    }
   };
 
   return (
@@ -232,7 +238,9 @@ export default function NearbyMedicalShops() {
                 )}
               </div>
               
-              <button className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-colors">
+              <button 
+                onClick={() => window.location.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shop.name + ' ' + shop.address)}`}
+                className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-colors">
                 <Navigation className="w-4 h-4 rotate-45" />
                 Get Directions
               </button>

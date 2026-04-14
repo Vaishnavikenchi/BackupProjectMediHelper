@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Camera, Zap, UploadCloud, CheckCircle, Loader, Search, Info, AlertTriangle, Pill } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Tesseract from 'tesseract.js';
-import { getAllMedicines } from '../../firebase/firestoreService';
+import { getAllMedicines, addPrescriptionHistory } from '../../firebase/firestoreService';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import VoiceAssistant from '../components/VoiceAssistant';
 
@@ -15,6 +16,7 @@ export default function UploadPrescription() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
   const { language, setLanguage, LANGUAGES } = useLanguage();
+  const { currentUser } = useAuth();
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -53,9 +55,15 @@ export default function UploadPrescription() {
       if (foundMeds.length > 0) {
         setMatchedMedicines(foundMeds);
         toast.success(`Found ${foundMeds.length} medicine(s) in prescription!`, { icon: '💊' });
+        if (currentUser) {
+           addPrescriptionHistory(currentUser.uid, foundMeds.map(m => m.name).join(', '), cleanText.substring(0, 100)).catch(console.warn);
+        }
       } else {
         setNotFound(true);
         toast('No matching medicines found in database for this prescription.', { icon: '🔍' });
+        if (currentUser) {
+           addPrescriptionHistory(currentUser.uid, 'No Match', cleanText.substring(0, 100)).catch(console.warn);
+        }
       }
     } catch (err) {
       toast.error('Could not extract text from image. Please try a clearer image.');

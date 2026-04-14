@@ -209,11 +209,27 @@ export async function deleteReminder(reminderId) {
 export async function addHistory(userId, data) {
   return await addDoc(collection(db, 'history'), {
     userId,
+    category: data.category || 'medication', // 'medication' | 'search' | 'prescription' | 'nearby'
     medicineName: data.medicineName || '',
     dosage: data.dosage || '',
     status: data.status || 'taken',   // 'taken' | 'missed'
+    searchQuery: data.searchQuery || '',
+    locationQuery: data.locationQuery || '',
+    details: data.details || '',
     takenAt: serverTimestamp(),
   });
+}
+
+export async function addSearchHistory(userId, searchQuery, details = '') {
+  return await addHistory(userId, { category: 'search', searchQuery, details });
+}
+
+export async function addPrescriptionHistory(userId, medicineName, details = '') {
+  return await addHistory(userId, { category: 'prescription', medicineName, details });
+}
+
+export async function addNearbyHistory(userId, locationQuery, medicineName = '') {
+  return await addHistory(userId, { category: 'nearby', locationQuery, medicineName });
 }
 
 export async function updateHistory(historyId, data) {

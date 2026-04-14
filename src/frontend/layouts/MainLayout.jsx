@@ -9,7 +9,7 @@ const navItems = [
   { to: '/dashboard', icon: Home,     label: 'Dashboard'  },
   { to: '/search',    icon: Search,   label: 'Search'     },
   { to: '/nearby',    icon: MapPin,   label: 'Nearby'     },
-  { to: '/scanner',   icon: Camera,   label: 'Scan'       },
+  { to: '/scanner',   icon: Camera,   label: 'Upload Strip'},
   { to: '/reminders', icon: Bell,     label: 'Reminders'  },
   { to: '/history',   icon: Clock,    label: 'History'    },
   { to: '/profile',   icon: User,     label: 'Profile'    },
