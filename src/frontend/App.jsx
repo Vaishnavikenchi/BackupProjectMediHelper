@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import SearchMedicine from './pages/SearchMedicine';
+import NearbyMedicalShops from './pages/NearbyMedicalShops';
 import ScannerPage from './pages/ScannerPage';
 import UploadPrescription from './pages/UploadPrescription';
 import MedicineDetail from './pages/MedicineDetail';
@@ -75,6 +76,7 @@ function App() {
                       {/* User routes */}
                       <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/search" element={<SearchMedicine />} />
+                    <Route path="/nearby" element={<NearbyMedicalShops />} />
                     <Route path="/scanner" element={<ScannerPage />} />
                     <Route path="/upload-prescription" element={<UploadPrescription />} />
                     <Route path="/medicine/:id" element={<MedicineDetail />} />

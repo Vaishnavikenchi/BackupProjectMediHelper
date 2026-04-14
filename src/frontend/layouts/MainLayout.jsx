@@ -1,13 +1,14 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, Search, Camera, Bell, Clock, User, Settings, LogOut, Pill, Shield } from 'lucide-react';
+import { Home, Search, Camera, Bell, Clock, User, Settings, LogOut, Pill, Shield, MapPin } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 import toast from 'react-hot-toast';
 
 const navItems = [
   { to: '/dashboard', icon: Home,     label: 'Dashboard'  },
   { to: '/search',    icon: Search,   label: 'Search'     },
+  { to: '/nearby',    icon: MapPin,   label: 'Nearby'     },
   { to: '/scanner',   icon: Camera,   label: 'Scan'       },
   { to: '/reminders', icon: Bell,     label: 'Reminders'  },
   { to: '/history',   icon: Clock,    label: 'History'    },
